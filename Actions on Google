@@ -1,0 +1,198 @@
+'use strict';
+
+const {dialogflow} = require('actions-on-google');
+
+const functions = require('firebase-functions');
+
+const app = dialogflow({debug:true});
+
+app.intent("UserRequestsBMI", (conv) => {
+  
+  let weight = conv.data.weight;
+  let height = conv.data.height;
+  
+  if (!weight && !height) {
+	conv.ask("To calculate your body mass index, what is your height in inches and your weight in pounds?");
+  } else if (!weight) {
+	conv.ask("To calculate your body mass index, what is your weight in pounds?");
+  } else if (!height) {
+	conv.ask("To calculate your body mass index, what is your height in inches?");
+  } else {
+	let bmi = calculateBMI(height, weight);
+	let bmiLabel = getBMILabel(bmi);
+	conv.data.bmi = bmi;
+	
+	conv.ask(`Based on the information you've entered, your BMI is ${bmi} which means that you are ${bmiLabel}.`);
+  }
+});
+
+app.intent("AskForBMIInput", (conv) => {
+  
+  const weight = conv.parameters['weight']['amount'];
+  conv.data.weight = weight;
+  
+  const height = conv.parameters['height']['amount'];
+  conv.data.height;
+  
+  let bmi = calculateBMI(height, weight);
+  let bmiLabel = getBMILabel(bmi);
+  conv.data.bmi = bmi;
+  
+  conv.ask(`Based on the information you've entered, your BMI is ${bmi} which means that you are ${bmiLabel}.`);
+});
+
+exports.calculateBMI = (req, res) => {
+    
+    const userHeight = req.query.height;
+    const userWeight = req.query.weight;
+
+    const bmi = ((730 * userWeight) / (userHeight * userHeight));
+
+    res.status(200).send(bmi);
+
+};
+
+exports.bmiLabel = (req, res) => {
+	
+	var message = "";
+	
+	if (bmi > 20) {
+		message = `fat`;
+	} else if (bmi < 10) {
+		message = `healthy`;
+	} else if (bmi > 10) {
+		message = `slightly overweight`;
+	}
+	
+	res. status(200).send(message);
+};
+
+app.intent("UserRequestsTargetHR", (conv) => {
+  
+  let rhr = conv.data.rhr;
+  let age = conv.data.age;
+  
+  if (!rhr && !age) {
+	conv.ask("To calculate your target heart rate, what is your resting heart rate and your age?");
+  } else if (!rhr) {
+	conv.ask("To calculate your target heart rate, what is your resting heart rate?");
+  } else if (!age) {
+	conv.ask("To calculate your target heart rate, what is your age?");
+  } else {
+	let targetHR = calculateTargetHR(rhr, age);
+	conv.data.targetHR = targetHR;
+	
+	conv.ask(`Based on the information you've entered, your target heart rate is ${targetHR}.`);
+  }
+});
+
+exports.calculateTargetHR = (req, res) => {
+    let rhr = req.query.rhr;
+    let age = req.query.age;
+
+    let mhr = 220 - age;
+
+    let zone1min = mhr * 0.6;
+    let zone1max = mhr * 0.7;
+    let zone2min = mhr * 0.7;
+    let zone2max = mhr * 0.8;
+    let zone3 = mhr * 0.8;
+
+    let message = `Based on your inputs, here are your target heart rates:  Your Zone 1 rate (60% effort minimum) is between ${zone1min} and ${zone1max} beats per minute.  Your Zone 2 rate (70% effort minimum) is between ${zone2min} and ${zone2max} beats per minute.  Your Zone 3 rate (80% effort minimum) is anything above ${zone3} beats per minute.  Keep in mind that these are only estimates.`;
+
+    res.status(200).send(message);
+}
+
+exports.calculateIdealBFP = (req, res) => {
+
+    let gender = req.query.gender;
+    let bmi = req.query.bmi;
+    let age = req.query.age;
+
+    var underfat;
+    var healthymin;
+    var healthymax;
+    var overweightmin;
+    var overweightmax;
+    var obese;
+    var bfp;
+
+    if (gender == "m") {
+        bfp = (1.20 * bmi) + (0.23 * age) - 16.2;
+        
+        if ((age <= 20) && (age >= 40)) {
+            underfat = "21%";
+            healthymin = "21%";
+            healthymax = "33%";
+            overweightmin = "33%";
+            overweightmax = "39%";
+            obese = "39%";
+        } else if ((age >= 41) && (age <= 60)) {
+            underfat = "23%";
+            healthymin = "23%";
+            healthymax = "35%";
+            overweightmin = "35%";
+            overweightmax = "40%";
+            obese = "40%";
+        } else if ((age >= 61) && (age <= 79)) {
+            underfat = "24%";
+            healthymin = "24%";
+            healthymax = "36%";
+            overweightmin = "42%";
+            overweightmax = "42%";
+            obese = "42%";
+        } else {
+            underfat = 0;
+        }
+
+        if (typeof underfat == "number") {
+            message = "Could not be calculated.";
+        }
+        else {
+            message = `Your body fat percentage is ${bfp}%.  For males in your age range, your ideal body fat percentage is between ${healthymin} and ${healthymax}.  You are considered overweight if your body fat percentage is between ${overweightmin} and ${overweightmin}.  Anything over ${obese} is considered obese, and anything under ${underfat} is considered underfat.`;
+        }
+       
+    } else if (gender == "f") {
+        bfp = (1.20 * bmi) + (0.23 * age) - 5.4;
+        
+        if ((age <= 20) && (age >= 40)) {
+            underfat = "8%";
+            healthymin = "8%";
+            healthymax = "19%";
+            overweightmin = "19%";
+            overweightmax = "25%";
+            obese = "25%";
+        } else if ((age >= 41) && (age <= 60)) {
+            underfat = "11%";
+            healthymin = "11%";
+            healthymax = "22%";
+            overweightmin = "22%";
+            overweightmax = "27%";
+            obese = "27%";
+        } else if ((age >= 61) && (age <= 79)) {
+            underfat = "13%";
+            healthymin = "13%";
+            healthymax = "25%";
+            overweightmin = "25%";
+            overweightmax = "30%";
+            obese = "30%";
+        } else {
+            underfat = 0;
+        }
+
+        if (typeof underfat == "number") {
+            message = "Could not be calculated.";
+        }
+        else {
+            message = `Your body fat percentage is ${bfp}%.  For females in your age range, your ideal body fat percentage is between ${healthymin} and ${healthymax}.  You are considered overweight if your body fat percentage is between ${overweightmin} and ${overweightmin}.  Anything over ${obese} is considered obese, and anything under ${underfat} is considered underfat.`;
+        }
+
+    } else {
+        message = "Could not be calculated.";
+    }
+
+    res.status(200).send(message);
+
+}
+
+exports.bodyCalculator = functions.https.onRequest(app);
